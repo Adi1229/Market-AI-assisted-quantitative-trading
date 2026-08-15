@@ -41,6 +41,7 @@ _workflow_orchestrator = WorkflowOrchestrator(
 from app.data.providers.mock import MockMarketDataProvider
 from app.data.providers.yfinance_provider import YFinanceMarketDataProvider
 from app.data.providers.base import MarketDataProvider
+from app.data.providers.dhanhq_provider import DhanMarketDataProvider
 from app.intelligence.news import MockNewsProvider, YFinanceNewsProvider, BaseNewsProvider
 from app.intelligence.fundamentals import MockFundamentalProvider, YFinanceFundamentalProvider, BaseFundamentalProvider
 from app.data.ingestion import DataIngestionService
@@ -61,8 +62,10 @@ except: pass
 _ml_selector = MLStrategyRanker()
 
 def get_market_data_provider() -> MarketDataProvider:
-    if settings.DATA_PROVIDER.lower() == "real":
+    if settings.DATA_PROVIDER.lower() == "real" or settings.DATA_PROVIDER.lower() == "yfinance":
         return YFinanceMarketDataProvider()
+    if settings.DATA_PROVIDER.lower() == "dhan":
+        return DhanMarketDataProvider()
     return MockMarketDataProvider()
 
 def get_news_provider() -> BaseNewsProvider:

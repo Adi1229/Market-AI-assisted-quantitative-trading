@@ -1,5 +1,6 @@
-from sqlalchemy import Column, String, Float, DateTime, Boolean, BigInteger, UniqueConstraint
+from sqlalchemy import Column, String, Float, DateTime, Boolean, BigInteger, JSON, ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.data.database.session import Base
 import datetime
 
@@ -14,9 +15,6 @@ class Instrument(Base):
 class OHLCVData(Base):
     __tablename__ = "ohlcv_data"
 
-    # TimescaleDB requires the time column to be part of any primary key 
-    # if it's partitioned, but usually we don't define a PK in SQLAlchemy 
-    # for hypertables, or we use a composite PK.
     timestamp = Column(DateTime(timezone=True), primary_key=True, index=True)
     symbol = Column(String, primary_key=True, index=True)
     
@@ -27,3 +25,53 @@ class OHLCVData(Base):
     volume = Column(BigInteger, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Phase 5: Engine Models
+
+class TradeOpportunityDB(Base):
+    __tablename__ = "trade_opportunities"
+    
+    opportunity_id = Column(String, primary_key=True, index=True)
+    symbol = Column(String, index=True, nullable=False)
+    timestamp = Column(DateTime(timezone=True), nullable=False)
+    decision_mode = Column(String, nullable=False)
+    direction = Column(String, nullable=False)
+    confidence_score = Column(Float, nullable=False)
+    
+    strategy_evidence = Column(JSON, nullable=True)
+    ai_evidence = Column(JSON, nullable=True)
+    
+    status = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class OrderDB(Base):
+    __tablename__ = "paper_orders"
+    
+    order_id = Column(String, primary_key=True, index=True)
+    opportunity_id = Column(String, ForeignKey("trade_opportunities.opportunity_id"))
+    instrument_id = Column(String, nullable=False)
+    direction = Column(String, nullable=False)
+    order_type = Column(String, nullable=False)
+    quantity = Column(Float, nullable=False)
+    status = Column(String, nullable=False)
+    fill_price = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    filled_at = Column(DateTime(timezone=True), nullable=True)
+
+class PositionDB(Base):
+    __tablename__ = "paper_positions"
+    
+    id = Column(String, primary_key=True, index=True)
+    instrument_id = Column(String, index=True, nullable=False)
+    direction = Column(String, nullable=False)
+    quantity = Column(Float, nullable=False)
+    entry_price = Column(Float, nullable=False)
+    opened_at = Column(DateTime(timezone=True), nullable=False)
+
+class UserDecisionDB(Base):
+    __tablename__ = "user_decisions"
+    
+    action_id = Column(String, primary_key=True, index=True)
+    opportunity_id = Column(String, ForeignKey("trade_opportunities.opportunity_id"))
+    action = Column(String, nullable=False) # TAKE_TRADE, IGNORE
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())

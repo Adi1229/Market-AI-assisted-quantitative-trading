@@ -5,7 +5,8 @@ from app.engine.signal import SignalEngine
 from app.engine.risk import RiskEngine
 from app.engine.portfolio import VirtualPortfolio
 from app.engine.execution import PaperExecutionProvider
-from app.engine.notification import MockTelegramAdapter
+from app.engine.notification import MockTelegramAdapter, TelegramAdapter
+from app.core.config import settings
 from app.engine.workflow import WorkflowOrchestrator
 from app.strategies.registry import StrategyRegistry
 from app.backtesting.engine import BacktestEngine
@@ -27,7 +28,10 @@ finally:
     db.close()
 
 _execution_provider = PaperExecutionProvider(_portfolio)
-_notification = MockTelegramAdapter()
+if settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID:
+    _notification = TelegramAdapter(bot_token=settings.TELEGRAM_BOT_TOKEN, chat_id=settings.TELEGRAM_CHAT_ID)
+else:
+    _notification = MockTelegramAdapter()
 _workflow_orchestrator = WorkflowOrchestrator(
     risk_engine=_risk_engine,
     execution_provider=_execution_provider,
@@ -40,7 +44,7 @@ from app.data.providers.base import MarketDataProvider
 from app.intelligence.news import MockNewsProvider, YFinanceNewsProvider, BaseNewsProvider
 from app.intelligence.fundamentals import MockFundamentalProvider, YFinanceFundamentalProvider, BaseFundamentalProvider
 from app.data.ingestion import DataIngestionService
-from app.core.config import settings
+
 
 # Registries and Services
 _strategy_registry = StrategyRegistry

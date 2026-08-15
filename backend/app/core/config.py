@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     # Provider Settings
     MOCK_PROVIDER_ENABLED: bool = True
     DATA_PROVIDER: str = "mock"
+    AI_PROVIDER: str = "mock"
+    
+    # Telegram Settings
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_CHAT_ID: Optional[str] = None
     
     class Config:
         env_file = ".env"

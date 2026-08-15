@@ -131,13 +131,13 @@ export default function SignalCenter() {
                   <div className="pt-2 border-t border-border">
                     <p className="text-xs font-semibold mb-1 text-muted-foreground">AI EVIDENCE</p>
                     <div className="flex justify-between text-sm mb-1">
-                      <span>{opp.ai_evidence.provider_id}</span>
+                      <span>{opp.ai_evidence.ai_model_id === "MockAI" ? "MOCK" : "REAL"}</span>
                       <span className={opp.ai_evidence.direction === "BUY" ? "text-green-500" : "text-red-500"}>
                         {opp.ai_evidence.direction} ({opp.ai_evidence.ai_score.toFixed(1)})
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground italic line-clamp-2">
-                      "{opp.ai_evidence.thesis}"
+                      "{opp.ai_evidence.reasoning && opp.ai_evidence.reasoning.length > 0 ? opp.ai_evidence.reasoning[0] : 'No reasoning provided'}"
                     </p>
                   </div>
                 )}

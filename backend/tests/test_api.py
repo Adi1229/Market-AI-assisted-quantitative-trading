@@ -5,9 +5,12 @@ import pytest
 client = TestClient(app)
 
 def test_health_check():
-    response = client.get("/health")
+    response = client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "project": "Market 2.0 MVP"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["project"] == "Market 2.0 MVP"
+    assert "provider" in data
 
 def test_get_instruments():
     response = client.get("/api/v1/instruments")

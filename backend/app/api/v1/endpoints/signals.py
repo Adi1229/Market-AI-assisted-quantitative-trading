@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime
+import json
 
 from app.api.dependencies import get_signal_engine, get_workflow_orchestrator
+from app.data.database.session import get_db
+from app.data.database.models import TradeOpportunityDB
 from app.engine.signal import SignalEngine
 from app.engine.workflow import WorkflowOrchestrator
-from app.engine.models import DecisionMode, OpportunityStatus
+from app.engine.models import DecisionMode, OpportunityStatus, TradeOpportunity, StrategyEvidence, AIEvidence
 from app.api.schemas import (
     OpportunityResponse, ApproveRequest, RejectRequest, MessageResponse,
     DecisionModeUpdate, StrategyEvidenceResponse, AIEvidenceResponse
@@ -13,15 +17,39 @@ from app.api.schemas import (
 
 router = APIRouter()
 
-# MVP mock memory for generated opportunities to list in UI
-_opportunities_store = {}
+def _db_to_pydantic(db_opp: TradeOpportunityDB) -> TradeOpportunity:
+    strat_ev = None
+    if db_opp.strategy_evidence:
+        strat_ev = StrategyEvidence(**db_opp.strategy_evidence)
+    ai_ev = None
+    if db_opp.ai_evidence:
+        ai_ev = AIEvidence(**db_opp.ai_evidence)
+        
+    return TradeOpportunity(
+        opportunity_id=db_opp.opportunity_id,
+        symbol=db_opp.symbol,
+        instrument_id=db_opp.symbol, # For MVP, symbol and instrument_id are the same
+        timestamp=db_opp.timestamp,
+        decision_mode=DecisionMode(db_opp.decision_mode),
+        direction=db_opp.direction,
+        confidence_score=db_opp.confidence_score,
+        strategy_evidence=strat_ev,
+        ai_evidence=ai_ev,
+        market_regime="N/A", # not fully persisted in Phase 7 simple model
+        risk_level="MEDIUM", # dummy
+        reasoning=[],
+        data_references=[],
+        status=OpportunityStatus(db_opp.status)
+    )
 
 @router.get("/opportunities", response_model=List[OpportunityResponse])
-def list_opportunities():
+def list_opportunities(db: Session = Depends(get_db)):
     """List recent trade opportunities."""
-    # Convert internal to schema response
+    db_opps = db.query(TradeOpportunityDB).order_by(TradeOpportunityDB.timestamp.desc()).limit(50).all()
+    
     results = []
-    for opp in _opportunities_store.values():
+    for db_opp in db_opps:
+        opp = _db_to_pydantic(db_opp)
         strat_ev = None
         if opp.strategy_evidence:
             strat_ev = StrategyEvidenceResponse(
@@ -48,7 +76,7 @@ def list_opportunities():
                 symbol=opp.symbol,
                 timestamp=opp.timestamp,
                 decision_mode=opp.decision_mode.value,
-                direction=opp.direction.value,
+                direction=opp.direction.value if hasattr(opp.direction, 'value') else opp.direction,
                 confidence_score=opp.confidence_score,
                 status=opp.status.value,
                 suggested_entry=opp.suggested_entry,
@@ -62,11 +90,12 @@ def list_opportunities():
     return results
 
 @router.get("/opportunities/{opp_id}", response_model=OpportunityResponse)
-def get_opportunity(opp_id: str):
-    if opp_id not in _opportunities_store:
+def get_opportunity(opp_id: str, db: Session = Depends(get_db)):
+    db_opp = db.query(TradeOpportunityDB).filter(TradeOpportunityDB.opportunity_id == opp_id).first()
+    if not db_opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
         
-    opp = _opportunities_store[opp_id]
+    opp = _db_to_pydantic(db_opp)
     
     strat_ev = None
     if opp.strategy_evidence:
@@ -93,7 +122,7 @@ def get_opportunity(opp_id: str):
         symbol=opp.symbol,
         timestamp=opp.timestamp,
         decision_mode=opp.decision_mode.value,
-        direction=opp.direction.value,
+        direction=opp.direction.value if hasattr(opp.direction, 'value') else opp.direction,
         confidence_score=opp.confidence_score,
         status=opp.status.value,
         suggested_entry=opp.suggested_entry,
@@ -108,16 +137,18 @@ def get_opportunity(opp_id: str):
 async def approve_opportunity(
     opp_id: str, 
     req: ApproveRequest,
-    orchestrator: WorkflowOrchestrator = Depends(get_workflow_orchestrator)
+    orchestrator: WorkflowOrchestrator = Depends(get_workflow_orchestrator),
+    db: Session = Depends(get_db)
 ):
     """User approves trade (TAKE_TRADE)."""
-    if opp_id not in _opportunities_store:
+    db_opp = db.query(TradeOpportunityDB).filter(TradeOpportunityDB.opportunity_id == opp_id).first()
+    if not db_opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
         
-    opp = _opportunities_store[opp_id]
+    opp = _db_to_pydantic(db_opp)
     
     try:
-        order = await orchestrator.process_user_action(opp, "TAKE_TRADE", req.current_price)
+        order = await orchestrator.process_user_action(opp, "TAKE_TRADE", req.current_price, db=db)
         if not order:
             raise HTTPException(status_code=400, detail="Order could not be processed (potentially duplicate/idempotency or rejected).")
         return MessageResponse(message=f"Opportunity {opp_id} executed. Order ID: {order.order_id}")
@@ -134,15 +165,17 @@ async def approve_opportunity(
 async def ignore_opportunity(
     opp_id: str, 
     req: RejectRequest,
-    orchestrator: WorkflowOrchestrator = Depends(get_workflow_orchestrator)
+    orchestrator: WorkflowOrchestrator = Depends(get_workflow_orchestrator),
+    db: Session = Depends(get_db)
 ):
     """User rejects trade (IGNORE)."""
-    if opp_id not in _opportunities_store:
+    db_opp = db.query(TradeOpportunityDB).filter(TradeOpportunityDB.opportunity_id == opp_id).first()
+    if not db_opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
         
-    opp = _opportunities_store[opp_id]
+    opp = _db_to_pydantic(db_opp)
     try:
-        await orchestrator.process_user_action(opp, "IGNORE", req.current_price)
+        await orchestrator.process_user_action(opp, "IGNORE", req.current_price, db=db)
         return MessageResponse(message=f"Opportunity {opp_id} ignored.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -161,7 +194,8 @@ def set_decision_mode(req: DecisionModeUpdate):
 @router.post("/test/generate_mock_opportunity")
 async def generate_mock_opportunity(
     orchestrator: WorkflowOrchestrator = Depends(get_workflow_orchestrator),
-    signal_engine: SignalEngine = Depends(get_signal_engine)
+    signal_engine: SignalEngine = Depends(get_signal_engine),
+    db: Session = Depends(get_db)
 ):
     """Generate a mock opportunity for testing the UI."""
     from app.strategies.base import StrategySignal
@@ -180,9 +214,7 @@ async def generate_mock_opportunity(
     )
     opp.suggested_position_size = 10.0
     
-    _opportunities_store[opp.opportunity_id] = opp
-    
     # Push through risk to await approval
-    await orchestrator.process_new_opportunity(opp, current_price=2450.0)
+    await orchestrator.process_new_opportunity(opp, current_price=2450.0, db=db)
     
     return {"message": "Mock opportunity generated", "opportunity_id": opp.opportunity_id}

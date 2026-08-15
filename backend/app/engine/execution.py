@@ -18,7 +18,7 @@ class ExecutionProvider(ABC):
     def execution_mode(self) -> str: ...
 
     @abstractmethod
-    async def place_order(self, order: ExecutionOrder, current_price: float) -> ExecutionOrder: ...
+    async def place_order(self, order: ExecutionOrder, current_price: float, db=None) -> ExecutionOrder: ...
 
     @abstractmethod
     async def get_positions(self) -> List[ExecutionPosition]: ...
@@ -42,7 +42,7 @@ class PaperExecutionProvider(ExecutionProvider):
     def execution_mode(self) -> str:
         return "PAPER"
         
-    async def place_order(self, order: ExecutionOrder, current_price: float) -> ExecutionOrder:
+    async def place_order(self, order: ExecutionOrder, current_price: float, db=None) -> ExecutionOrder:
         """
         Simulate order fill immediately for MVP.
         """
@@ -57,8 +57,8 @@ class PaperExecutionProvider(ExecutionProvider):
         order.commission = commission
         order.slippage = slippage
         
-        self.portfolio.add_order(order)
-        self.portfolio.update_position(order, order.filled_at)
+        self.portfolio.add_order(order, db=db)
+        self.portfolio.update_position(order, order.filled_at, db=db)
         
         return order
         

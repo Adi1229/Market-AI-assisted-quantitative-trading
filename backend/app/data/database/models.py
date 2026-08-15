@@ -75,3 +75,21 @@ class UserDecisionDB(Base):
     opportunity_id = Column(String, ForeignKey("trade_opportunities.opportunity_id"))
     action = Column(String, nullable=False) # TAKE_TRADE, IGNORE
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+# Phase 7: Hardening Models
+
+class PortfolioStateDB(Base):
+    __tablename__ = "portfolio_state"
+    
+    id = Column(String, primary_key=True, index=True) # typically "virtual"
+    cash = Column(Float, nullable=False, default=100000.0)
+    realized_pnl = Column(Float, nullable=False, default=0.0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class IdempotencyKeyDB(Base):
+    __tablename__ = "idempotency_keys"
+    
+    idempotency_key = Column(String, primary_key=True, index=True)
+    opportunity_id = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

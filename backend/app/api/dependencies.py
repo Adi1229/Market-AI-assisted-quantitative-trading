@@ -11,10 +11,21 @@ from app.strategies.registry import StrategyRegistry
 from app.backtesting.engine import BacktestEngine
 from app.intelligence.ml_ranking import MLStrategyRanker
 
-# Singletons (In-memory state for MVP)
+from app.data.database.session import SessionLocal
+
 _signal_engine = SignalEngine()
 _risk_engine = RiskEngine()
 _portfolio = VirtualPortfolio(initial_capital=100000.0)
+
+# Initialize portfolio from DB
+db = SessionLocal()
+try:
+    _portfolio.load_from_db(db)
+except Exception as e:
+    print(f"Failed to load portfolio from DB on startup: {e}")
+finally:
+    db.close()
+
 _execution_provider = PaperExecutionProvider(_portfolio)
 _notification = MockTelegramAdapter()
 _workflow_orchestrator = WorkflowOrchestrator(

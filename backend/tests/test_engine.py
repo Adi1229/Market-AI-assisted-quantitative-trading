@@ -54,7 +54,41 @@ def test_signal_engine_hybrid_mode(signal_engine):
     assert opp.confidence_score == 90.0
     assert opp.status == OpportunityStatus.CREATED
 
-def test_workflow_risk_rejection(orchestrator):
+from sqlalchemy.exc import IntegrityError
+
+class MockDB:
+    def __init__(self):
+        self._keys = set()
+        self.mock_queries = []
+        
+    def add(self, item):
+        from app.data.database.models import IdempotencyKeyDB
+        if isinstance(item, IdempotencyKeyDB):
+            if item.idempotency_key in self._keys:
+                raise IntegrityError("Duplicate", params=None, orig=None)
+            self._keys.add(item.idempotency_key)
+            
+    def commit(self): pass
+    def rollback(self): pass
+    def delete(self, item): pass
+    
+    def query(self, model):
+        class MockQuery:
+            def filter_by(self, **kwargs):
+                return self
+            def filter(self, *args):
+                return self
+            def first(self):
+                return None
+            def all(self):
+                return []
+        return MockQuery()
+
+@pytest.fixture
+def mock_db():
+    return MockDB()
+
+def test_workflow_risk_rejection(orchestrator, mock_db):
     """Test Risk Engine hard gate."""
     opp = TradeOpportunity(
         symbol="TEST", instrument_id="TEST", timestamp=datetime.now(),
@@ -63,11 +97,11 @@ def test_workflow_risk_rejection(orchestrator):
         suggested_position_size=5000.0, market_regime="Unknown"
     )
     
-    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0))
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
     assert opp.status == OpportunityStatus.RISK_REJECTED
     assert any("MAX_POSITION_SIZE_EXCEEDED" in r for r in opp.reasoning)
 
-def test_workflow_stale_signal(orchestrator):
+def test_workflow_stale_signal(orchestrator, mock_db):
     """Test stale signal rejection."""
     opp = TradeOpportunity(
         symbol="TEST", instrument_id="TEST", timestamp=datetime.now() - timedelta(minutes=10),
@@ -75,11 +109,11 @@ def test_workflow_stale_signal(orchestrator):
         confidence_score=90.0, risk_level="LOW", reasoning=[], data_references=[],
         suggested_position_size=100.0, market_regime="Unknown"
     )
-    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0))
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
     assert opp.status == OpportunityStatus.RISK_REJECTED
     assert any("STALE_SIGNAL" in r for r in opp.reasoning)
 
-def test_workflow_execution_and_idempotency(orchestrator):
+def test_workflow_execution_and_idempotency(orchestrator, mock_db):
     """Test approval workflow, paper execution, and idempotency."""
     opp = TradeOpportunity(
         symbol="TEST", instrument_id="TEST", timestamp=datetime.now(),
@@ -88,11 +122,11 @@ def test_workflow_execution_and_idempotency(orchestrator):
         suggested_position_size=10.0, market_regime="Unknown"
     )
     
-    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0))
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
     assert opp.status == OpportunityStatus.AWAITING_APPROVAL
     
     # User clicks TAKE_TRADE
-    order = asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0))
+    order = asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0, db=mock_db))
     
     assert order is not None
     assert opp.status == OpportunityStatus.EXECUTED
@@ -103,14 +137,14 @@ def test_workflow_execution_and_idempotency(orchestrator):
     assert portfolio.cash < 10000.0 # Deducted cost basis + commission
     
     # Try TAKE_TRADE again to verify idempotency
-    order2 = asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0))
+    order2 = asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0, db=mock_db))
     assert order2 is None # Idempotency blocked it
     
     # Double check portfolio hasn't changed
     portfolio2 = asyncio.run(orchestrator.execution.get_portfolio_summary({"TEST": 100.0}))
     assert portfolio2.open_positions == 1
 
-def test_workflow_live_safety_block(orchestrator):
+def test_workflow_live_safety_block(orchestrator, mock_db):
     """Test that LIVE execution is blocked by default."""
     orchestrator.execution = type('MockExecution', (), {'execution_mode': 'LIVE', 'get_portfolio_summary': orchestrator.execution.get_portfolio_summary, 'get_positions': orchestrator.execution.get_positions})()
     
@@ -121,10 +155,10 @@ def test_workflow_live_safety_block(orchestrator):
         suggested_position_size=10.0, market_regime="Unknown"
     )
     
-    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0))
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
     
     try:
-        asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0))
+        asyncio.run(orchestrator.process_user_action(opp, "TAKE_TRADE", current_price=100.0, db=mock_db))
     except RuntimeError as e:
         assert "LIVE execution mode disabled" in str(e)
         

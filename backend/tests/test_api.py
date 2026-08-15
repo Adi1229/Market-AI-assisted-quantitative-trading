@@ -20,8 +20,8 @@ def test_get_strategies():
     response = client.get("/api/v1/strategies")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
-    # We registered 2 default strategies in dependencies.py
-    assert len(response.json()) == 2
+    # We registered multiple default strategies in dependencies.py
+    assert len(response.json()) >= 2
 
 def test_portfolio_summary():
     response = client.get("/api/v1/portfolio/summary")

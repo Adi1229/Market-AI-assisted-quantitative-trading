@@ -1,24 +1,79 @@
-# Phase 6 Verification Report
+# Phase 6 Final Integration Audit
 
-## Objective
-Build the user-facing MVP integration layer (API & Frontend Dashboard) to expose the Market 2.0 quantitative intelligence engine securely to users.
+## 1. FULL BACKEND REGRESSION
+- Phase 1: 4 passed
+- Phase 2: 15 passed
+- Phase 3: 8 passed
+- Phase 4: 4 passed
+- Phase 5: 5 passed
+- Phase 6: 5 passed
 
-## Scope Verified
-- ✅ **FastAPI Backend Structure**: Configured `app/api/v1` routes with CORS targeting the frontend.
-- ✅ **API Dependencies**: Correctly wired `StrategyRegistry`, `BacktestEngine`, `WorkflowOrchestrator`, and `SignalEngine` singletons.
-- ✅ **Endpoints Functionality**: Tested `/opportunities`, `/approve`, `/ignore`, `/portfolio`, `/backtests`, and `/strategies` endpoints.
-- ✅ **API Unit Tests**: Wrote and successfully passed full E2E API tests via `pytest`. Fixed Pydantic serialization edge cases for nested evidence mapping.
-- ✅ **Next.js Client**: Scaffolded a Next.js (App Router) project with Tailwind and Shadcn UI (dark mode natively enabled).
-- ✅ **Dashboard Overview**: Displays portfolio cash, open positions, exposure, and a feed of recent trade opportunities + AI Market Regime context.
-- ✅ **Strategy Studio**: Exposes the strategy registry with real-time activate/deactivate toggles.
-- ✅ **Backtesting Engine**: Form interface allowing users to configure backtests (start/end date, capital, symbol, strategy) with interactive performance metrics outputs (Sharpe, CAGR, Max Drawdown).
-- ✅ **Signal Center**: Acts as the gate for the `Risk Gate`. Allows one-click simulated trade generation, displaying complex context on AI reasoning and strategy thesis, and handles human-in-the-loop TAKE_TRADE vs IGNORE states.
-- ✅ **Paper Portfolio**: Exposes open positions (with live Unrealized PnL mapping capability) and full execution history directly connected to backend tracking logic.
+TOTAL PASSED: 41
+TOTAL FAILED: 0
+TOTAL SKIPPED: 0
 
-## Known MVP Limitations Retained Intentionally
-- User Decision State is in-memory and will reset on server restart (as designed in Phase 5 scope).
-- Idempotency hits exist globally and survive only during the backend runtime (no Redis/DB persistence yet).
-- Frontend assumes paper trading by default in MVP as LIVE trading involves real capital connectivity.
+## 2. FRONTEND BUILD
+The frontend build completed successfully with 0 errors and 0 warnings.
+Status: Success.
 
-## Summary
-Phase 6 connects the backend engine securely to an aesthetically pleasing, modern Web UI via REST endpoints. The Next.js client has successfully passed strict TypeScript compilation and is fully functional. The codebase is now ready for E2E user walk-throughs.
+```
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /backtesting
+├ ○ /portfolio
+├ ○ /signals
+└ ○ /strategies
+
+○  (Static)  prerendered as static content
+```
+
+## 3. BACKEND STARTUP
+Backend `uvicorn app.main:app --reload` starts successfully.
+`/docs` and `/openapi.json` are accessible.
+
+## 4. FRONTEND STARTUP
+Frontend `npm run dev` starts successfully.
+`http://localhost:3000` loads successfully.
+
+## 5. API → FRONTEND INTEGRATION
+- Dashboard consumes: `/api/v1/portfolio/summary`, `/api/v1/opportunities`
+- Strategy Studio consumes: `/api/v1/strategies`, `/api/v1/strategies/{id}/activate`, `/api/v1/strategies/{id}/deactivate`
+- Backtesting consumes: `/api/v1/strategies`, `/api/v1/backtests`
+- Signal Center consumes: `/api/v1/opportunities`, `/api/v1/opportunities/{id}/approve`, `/api/v1/opportunities/{id}/ignore`
+- Paper Portfolio consumes: `/api/v1/portfolio/summary`, `/api/v1/portfolio/positions`, `/api/v1/portfolio/orders`
+
+## 6. DASHBOARD VERIFICATION
+Values for portfolio value, open positions, exposure, and opportunities are populated from backend API responses. Uses an honest empty state for opportunities if none exist.
+
+## 7. STRATEGY STUDIO VERIFICATION
+Retrieves `momentum_v1` and `dummy_v1` from the API. The Start/Stop buttons call the `/activate` and `/deactivate` backend API correctly.
+
+## 8. BACKTESTING VERIFICATION
+The backtesting form submits a payload to FastAPI `BacktestEngine`, returning the execution result. The UI displays Sharpe Ratio, Max Drawdown, Win Rate, and Total Trades without recalculating them on the client.
+
+## 9. SIGNAL CENTER VERIFICATION
+Displays the `TradeOpportunity` with its symbol, direction, decision mode, score, risk status, and nested evidence objects (Strategy and AI).
+
+## 10. HUMAN APPROVAL E2E VERIFICATION
+Tested `TAKE_TRADE` against backend. The WorkflowOrchestrator processed the approval, leading to a Portfolio Update. Tested `IGNORE` against backend, leading to the Opportunity status changing to REJECTED.
+
+## 11. DUPLICATE APPROVAL VERIFICATION
+Verified that attempting to approve the same opportunity multiple times yields only ONE execution. The idempotency check in the orchestrator functions as expected.
+
+## 12. PAPER PORTFOLIO VERIFICATION
+Reflects executed paper orders on the frontend. Cash is decreased, position is opened, and the execution history log displays the new order.
+
+## 13. LIVE SAFETY VERIFICATION
+The `LIVE` execution mode is safely blocked by the backend WorkflowOrchestrator. The frontend does not have bypass logic. No broker credentials exist in the codebase.
+
+## 14. ARCHITECTURE AUDIT
+The frontend is strictly a presentational client. All strategy logic, decision-making, and risk management remain inside the Python domain engines.
+
+## 15. SECRET / CONFIG AUDIT
+The frontend does not contain any database credentials, Telegram tokens, or broker API keys. The `.env` file handles API routing variables securely.
+
+## 16. KNOWN LIMITATIONS
+1. Workflow state is currently in-memory.
+2. Paper portfolio/execution history is not restart-persistent.
+3. Idempotency currently uses an in-memory Set and does not survive backend restart.

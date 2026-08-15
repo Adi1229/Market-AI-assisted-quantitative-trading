@@ -75,3 +75,46 @@ def test_offline_execution():
     # The provider_id confirms we are using the local mocked logic.
     provider = MockMarketDataProvider()
     assert provider.provider_id == "mock"
+
+from unittest.mock import patch, MagicMock
+from app.data.providers.yfinance_provider import YFinanceMarketDataProvider
+
+@patch('yfinance.Ticker')
+def test_yfinance_provider_normalization(mock_ticker):
+    # Mock yfinance dataframe
+    mock_df = pd.DataFrame({
+        'Date': [datetime(2023, 1, 1, tzinfo=timezone.utc), datetime(2023, 1, 2, tzinfo=timezone.utc)],
+        'Open': [100.0, 102.0],
+        'High': [105.0, 106.0],
+        'Low': [99.0, 101.0],
+        'Close': [104.0, 103.0],
+        'Volume': [1000, 2000]
+    })
+    mock_df.set_index('Date', inplace=True)
+    
+    instance = MagicMock()
+    instance.history.return_value = mock_df
+    mock_ticker.return_value = instance
+    
+    provider = YFinanceMarketDataProvider()
+    start = datetime(2023, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2023, 1, 2, tzinfo=timezone.utc)
+    
+    df = provider.get_historical_ohlcv("RELIANCE.NS", "1d", start, end)
+    
+    assert not df.empty
+    assert list(df.columns) == ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+    assert df.iloc[0]['open'] == 100.0
+    assert df.iloc[0]['timestamp'].tzinfo is not None
+
+@patch('yfinance.Ticker')
+def test_yfinance_provider_empty(mock_ticker):
+    instance = MagicMock()
+    instance.history.return_value = pd.DataFrame()
+    mock_ticker.return_value = instance
+    
+    provider = YFinanceMarketDataProvider()
+    df = provider.get_historical_ohlcv("UNKNOWN", "1d", datetime.now(), datetime.now())
+    
+    assert df.empty
+    assert list(df.columns) == ['timestamp', 'open', 'high', 'low', 'close', 'volume']

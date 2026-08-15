@@ -118,3 +118,52 @@ def test_ml_strategy_ranking_temporal_leakage():
     assert rankings[1].rank == 2
     assert rankings[0].score >= rankings[1].score # Sorted descending
     assert rankings[0].model_id == "RandomForest_v1"
+
+from unittest.mock import patch, MagicMock
+from app.intelligence.news import YFinanceNewsProvider
+from app.intelligence.fundamentals import YFinanceFundamentalProvider
+
+@patch('yfinance.Ticker')
+def test_yfinance_news_provider(mock_ticker):
+    instance = MagicMock()
+    # Mock yfinance news format
+    instance.news = [
+        {
+            "uuid": "123",
+            "title": "Reliance earnings call",
+            "publisher": "Yahoo Finance",
+            "providerPublishTime": 1672531200,
+            "link": "http://example.com"
+        }
+    ]
+    mock_ticker.return_value = instance
+    
+    provider = YFinanceNewsProvider()
+    news = provider.fetch_news("RELIANCE.NS", datetime.now(), datetime.now())
+    
+    assert len(news) == 1
+    assert news[0].headline == "Reliance earnings call"
+    assert news[0].source == "Yahoo Finance"
+
+@patch('yfinance.Ticker')
+def test_yfinance_fundamentals_provider(mock_ticker):
+    instance = MagicMock()
+    instance.info = {
+        "trailingPE": 20.5,
+        "trailingEps": 45.2,
+        "totalRevenue": 1000000,
+        "returnOnEquity": 0.15
+    }
+    mock_ticker.return_value = instance
+    
+    provider = YFinanceFundamentalProvider()
+    fundamentals = provider.fetch_fundamentals("RELIANCE.NS", datetime.now())
+    
+    # We mapped 4 fields in info
+    assert len(fundamentals) == 4
+    metrics = {f.metric: f.value for f in fundamentals}
+    assert metrics["P/E"] == 20.5
+    assert metrics["EPS"] == 45.2
+    assert metrics["Revenue"] == 1000000
+    assert metrics["ROE"] == 0.15
+

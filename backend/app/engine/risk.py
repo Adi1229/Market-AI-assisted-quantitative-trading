@@ -23,7 +23,11 @@ class RiskEngine:
         """
         Evaluate if the opportunity passes all risk checks.
         """
-        # 1. Stale signal check
+        from datetime import timezone
+        # Stale Signal Check
+        current_time = datetime.now(timezone.utc)
+        if opportunity.timestamp.tzinfo is None:
+            opportunity.timestamp = opportunity.timestamp.replace(tzinfo=timezone.utc)
         age_seconds = (current_time - opportunity.timestamp).total_seconds()
         if age_seconds > self.stale_signal_seconds:
             return RiskDecision(approved=False, reason="STALE_SIGNAL")

@@ -34,6 +34,14 @@ _workflow_orchestrator = WorkflowOrchestrator(
     notification_adapter=_notification
 )
 
+from app.data.providers.mock import MockMarketDataProvider
+from app.data.providers.yfinance_provider import YFinanceMarketDataProvider
+from app.data.providers.base import MarketDataProvider
+from app.intelligence.news import MockNewsProvider, YFinanceNewsProvider, BaseNewsProvider
+from app.intelligence.fundamentals import MockFundamentalProvider, YFinanceFundamentalProvider, BaseFundamentalProvider
+from app.data.ingestion import DataIngestionService
+from app.core.config import settings
+
 # Registries and Services
 _strategy_registry = StrategyRegistry
 
@@ -47,6 +55,30 @@ try:
 except: pass
 
 _ml_selector = MLStrategyRanker()
+
+def get_market_data_provider() -> MarketDataProvider:
+    if settings.DATA_PROVIDER.lower() == "real":
+        return YFinanceMarketDataProvider()
+    return MockMarketDataProvider()
+
+def get_news_provider() -> BaseNewsProvider:
+    if settings.DATA_PROVIDER.lower() == "real":
+        return YFinanceNewsProvider()
+    return MockNewsProvider()
+
+def get_fundamental_provider() -> BaseFundamentalProvider:
+    if settings.DATA_PROVIDER.lower() == "real":
+        return YFinanceFundamentalProvider()
+    return MockFundamentalProvider()
+
+def get_data_ingestion_service(
+    provider: MarketDataProvider = Depends(get_market_data_provider)
+) -> DataIngestionService:
+    db = SessionLocal()
+    try:
+        yield DataIngestionService(provider, db)
+    finally:
+        db.close()
 
 def get_signal_engine() -> SignalEngine:
     return _signal_engine
@@ -68,3 +100,4 @@ def get_strategy_registry() -> type[StrategyRegistry]:
 
 def get_ml_selector() -> MLStrategyRanker:
     return _ml_selector
+

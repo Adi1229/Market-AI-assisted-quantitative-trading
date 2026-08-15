@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     
     # Provider Settings
     MOCK_PROVIDER_ENABLED: bool = True
+    DATA_PROVIDER: str = "mock"
     
     class Config:
         env_file = ".env"

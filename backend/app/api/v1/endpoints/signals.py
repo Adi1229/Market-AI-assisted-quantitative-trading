@@ -200,16 +200,19 @@ async def generate_mock_opportunity(
     """Generate a mock opportunity for testing the UI."""
     from app.strategies.base import StrategySignal
     from app.intelligence.models import AIAnalysis
+    import uuid
     
-    strategy_sig = StrategySignal(symbol="RELIANCE", strategy_id="mock", strategy_version="1", direction=1, features={}, timestamp=datetime.now())
+    unique_symbol = f"TEST_SYM_{uuid.uuid4().hex[:6]}"
+    
+    strategy_sig = StrategySignal(symbol=unique_symbol, strategy_id="mock", strategy_version="1", direction=1, features={}, timestamp=datetime.now())
     ai_analysis = AIAnalysis(
-        symbol="RELIANCE", timestamp=datetime.now(), market_context="Bullish",
+        symbol=unique_symbol, timestamp=datetime.now(), market_context="Bullish",
         thesis="Strong fundamentals and trend.", sentiment_evidence=[], fundamental_evidence=[],
         quantitative_evidence={}, provider_id="MockAI", confidence=0.85, risks=[]
     )
     
     opp = signal_engine.create_opportunity(
-        symbol="RELIANCE", timestamp=datetime.now(), decision_mode=DecisionMode.HYBRID,
+        symbol=unique_symbol, timestamp=datetime.now(), decision_mode=DecisionMode.HYBRID,
         strategy_signal=strategy_sig, ai_analysis=ai_analysis
     )
     opp.suggested_position_size = 10.0

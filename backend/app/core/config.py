@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     DHAN_CLIENT_ID: Optional[str] = None
     DHAN_ACCESS_TOKEN: Optional[str] = None
     
+    # Upstox Settings
+    UPSTOX_ANALYTICS_TOKEN: Optional[str] = None
+    
     class Config:
         env_file = ".env"
 

@@ -42,6 +42,7 @@ from app.data.providers.mock import MockMarketDataProvider
 from app.data.providers.yfinance_provider import YFinanceMarketDataProvider
 from app.data.providers.base import MarketDataProvider
 from app.data.providers.dhanhq_provider import DhanMarketDataProvider
+from app.data.providers.upstox_provider import UpstoxMarketDataProvider
 from app.intelligence.news import MockNewsProvider, YFinanceNewsProvider, BaseNewsProvider
 from app.intelligence.fundamentals import MockFundamentalProvider, YFinanceFundamentalProvider, BaseFundamentalProvider
 from app.data.ingestion import DataIngestionService
@@ -66,6 +67,8 @@ def get_market_data_provider() -> MarketDataProvider:
         return YFinanceMarketDataProvider()
     if settings.DATA_PROVIDER.lower() == "dhan":
         return DhanMarketDataProvider()
+    if settings.DATA_PROVIDER.lower() == "upstox":
+        return UpstoxMarketDataProvider()
     return MockMarketDataProvider()
 
 def get_news_provider() -> BaseNewsProvider:

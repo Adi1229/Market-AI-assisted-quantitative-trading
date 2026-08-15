@@ -17,6 +17,7 @@ class OHLCVData(Base):
 
     timestamp = Column(DateTime(timezone=True), primary_key=True, index=True)
     symbol = Column(String, primary_key=True, index=True)
+    timeframe = Column(String, primary_key=True, default="1d")
     
     open = Column(Float, nullable=False)
     high = Column(Float, nullable=False)

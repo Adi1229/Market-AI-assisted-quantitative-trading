@@ -24,8 +24,8 @@ export function Header() {
           ● SYSTEM: OPERATIONAL
         </Badge>
         
-        <Badge variant="outline" className="h-6 font-mono text-muted-foreground">
-          MODE: PAPER
+        <Badge variant="outline" className="h-6 font-mono bg-blue-500/10 text-blue-500 border-blue-500/20" title="LIVE trading is hard-blocked">
+          EXECUTION: PAPER ONLY (LIVE LOCKED)
         </Badge>
 
         <Button variant="ghost" size="icon" className="relative text-muted-foreground">

@@ -43,11 +43,34 @@ class DataIngestionService:
         if df['timestamp'].dt.tz is None:
             raise ValueError("Timestamps must be timezone-aware (UTC)")
             
+        # Data Quality Validation
+        df = df.sort_values(by='timestamp').drop_duplicates(subset=['timestamp'])
+        
+        # Drop rows with negative prices or invalid high/low/open/close relationships
+        invalid_mask = (
+            (df['open'] <= 0) | (df['high'] <= 0) | (df['low'] <= 0) | (df['close'] <= 0) |
+            (df['volume'] < 0) |
+            (df['high'] < df['low']) |
+            (df['high'] < df['open']) |
+            (df['high'] < df['close']) |
+            (df['low'] > df['open']) |
+            (df['low'] > df['close'])
+        )
+        
+        dropped = invalid_mask.sum()
+        if dropped > 0:
+            logger.warning(f"Dropped {dropped} invalid candles for {symbol} ({timeframe})")
+            df = df[~invalid_mask]
+            
+        if df.empty:
+            return 0
+            
         records = []
         for _, row in df.iterrows():
             records.append({
                 "timestamp": row['timestamp'],
                 "symbol": symbol,
+                "timeframe": timeframe,
                 "open": row['open'],
                 "high": row['high'],
                 "low": row['low'],
@@ -60,11 +83,11 @@ class DataIngestionService:
         
         # For timescaledb, the conflict target is usually the primary key components
         update_dict = {
-            c.name: c for c in stmt.excluded if c.name not in ['timestamp', 'symbol', 'created_at']
+            c.name: c for c in stmt.excluded if c.name not in ['timestamp', 'symbol', 'timeframe', 'created_at']
         }
         
         upsert_stmt = stmt.on_conflict_do_update(
-            index_elements=['timestamp', 'symbol'],
+            index_elements=['timestamp', 'symbol', 'timeframe'],
             set_=update_dict
         )
         

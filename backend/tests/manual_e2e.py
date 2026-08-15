@@ -80,6 +80,12 @@ async def run_e2e():
     print("\nSimulating User Clicking TAKE_TRADE...")
     await orchestrator.process_user_action(opp3, "TAKE_TRADE", 1400.0)
     
+    print("Simulating User Clicking TAKE_TRADE (Duplicate 1)...")
+    await orchestrator.process_user_action(opp3, "TAKE_TRADE", 1400.0)
+    
+    print("Simulating User Clicking TAKE_TRADE (Duplicate 2)...")
+    await orchestrator.process_user_action(opp3, "TAKE_TRADE", 1400.0)
+    
     summary = await execution.get_portfolio_summary({"RELIANCE": 2450.0, "INFY": 1400.0})
     print(f"Portfolio Value: {summary.total_value}, Cash: {summary.cash}, Positions: {summary.open_positions}")
     

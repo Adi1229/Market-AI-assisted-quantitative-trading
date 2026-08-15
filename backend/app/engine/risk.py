@@ -24,8 +24,9 @@ class RiskEngine:
         Evaluate if the opportunity passes all risk checks.
         """
         from datetime import timezone
-        # Stale Signal Check
-        current_time = datetime.now(timezone.utc)
+        # Stale Signal Check — ensure both timestamps are tz-aware for safe subtraction
+        if current_time.tzinfo is None:
+            current_time = current_time.replace(tzinfo=timezone.utc)
         if opportunity.timestamp.tzinfo is None:
             opportunity.timestamp = opportunity.timestamp.replace(tzinfo=timezone.utc)
         age_seconds = (current_time - opportunity.timestamp).total_seconds()

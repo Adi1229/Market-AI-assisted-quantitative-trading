@@ -78,42 +78,57 @@ class UpstoxMarketDataProvider(MarketDataProvider):
         from_date = start_date.strftime("%Y-%m-%d")
         to_date = end_date.strftime("%Y-%m-%d")
         
-        # Upstox V3 URL structure for historical candles
-        url = f"{self.base_url}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}"
+        # Determine endpoints
+        historical_url = f"{self.base_url}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}"
+        intraday_url = None
+        
+        # If intraday timeframe and end_date includes today, fetch intraday data too
+        if unit in ["minutes", "hours"] and end_date.date() >= datetime.now(timezone.utc).date():
+            intraday_url = f"{self.base_url}/historical-candle/intraday/{instrument_key}/{unit}/{interval}"
+            
+        all_candles = []
         
         try:
-            response = requests.get(url, headers=headers, timeout=10)
-            
-            if response.status_code == 429:
-                logger.error(f"Upstox rate limit exceeded for {symbol}")
+            # 1. Fetch historical
+            hist_resp = requests.get(historical_url, headers=headers, timeout=10)
+            if hist_resp.status_code == 429:
                 raise RuntimeError(f"HTTP 429: Rate limited by Upstox")
-                
-            response.raise_for_status()
+            if hist_resp.status_code == 200:
+                hist_data = hist_resp.json()
+                if hist_data.get("status") == "success":
+                    all_candles.extend(hist_data.get("data", {}).get("candles", []))
+                    
+            # 2. Fetch intraday (freshness)
+            if intraday_url:
+                intra_resp = requests.get(intraday_url, headers=headers, timeout=10)
+                if intra_resp.status_code == 429:
+                    raise RuntimeError(f"HTTP 429: Rate limited by Upstox")
+                if intra_resp.status_code == 200:
+                    intra_data = intra_resp.json()
+                    if intra_data.get("status") == "success":
+                        all_candles.extend(intra_data.get("data", {}).get("candles", []))
             
-            data = response.json()
-            if data.get("status") != "success":
-                logger.warning(f"Upstox API returned failure status: {data}")
-                return pd.DataFrame()
-                
-            candles = data.get("data", {}).get("candles", [])
-            if not candles:
+            if not all_candles:
                 return pd.DataFrame()
                 
             # Upstox candle format: [timestamp, open, high, low, close, volume, oi]
             # timestamp is ISO8601 string e.g. "2024-03-01T00:00:00+05:30"
             records = []
-            for candle in candles:
+            seen_timestamps = set()
+            for candle in all_candles:
                 if len(candle) >= 6:
                     ts, o, h, l, c, v = candle[:6]
-                    records.append({
-                        "timestamp": pd.to_datetime(ts, utc=True),
-                        "open": float(o),
-                        "high": float(h),
-                        "low": float(l),
-                        "close": float(c),
-                        "volume": int(v)
-                    })
-                    
+                    if ts not in seen_timestamps:
+                        seen_timestamps.add(ts)
+                        records.append({
+                            "timestamp": pd.to_datetime(ts, utc=True),
+                            "open": float(o),
+                            "high": float(h),
+                            "low": float(l),
+                            "close": float(c),
+                            "volume": int(v)
+                        })
+                        
             df = pd.DataFrame(records)
             df["symbol"] = symbol
             

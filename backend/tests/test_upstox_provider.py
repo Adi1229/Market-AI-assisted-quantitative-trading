@@ -68,6 +68,35 @@ def test_upstox_get_historical_success(mock_get, mock_upstox_settings):
     assert df.iloc[0]["timestamp"] < df.iloc[-1]["timestamp"]
 
 @patch('app.data.providers.upstox_provider.requests.get')
+def test_upstox_get_historical_intraday_routing(mock_get, mock_upstox_settings):
+    provider = UpstoxMarketDataProvider()
+    
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "status": "success",
+        "data": {
+            "candles": [
+                ["2026-08-17T15:25:00+05:30", 1320.0, 1320.0, 1316.0, 1316.0, 287518, 0]
+            ]
+        }
+    }
+    mock_get.return_value = mock_response
+    
+    df = provider.get_historical_ohlcv(
+        "RELIANCE.NS", "5m", datetime.now(timezone.utc), datetime.now(timezone.utc)
+    )
+    
+    # Assert that requests.get was called twice (historical and intraday)
+    assert mock_get.call_count == 2
+    
+    # Assert intraday URL was used
+    intraday_call = mock_get.call_args_list[1]
+    url = intraday_call[0][0]
+    assert "historical-candle/intraday" in url
+    assert not df.empty
+
+@patch('app.data.providers.upstox_provider.requests.get')
 def test_upstox_get_historical_rate_limit(mock_get, mock_upstox_settings):
     provider = UpstoxMarketDataProvider()
     

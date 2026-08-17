@@ -120,14 +120,20 @@ async def run_experiment():
         
     latest_signal = signals[-1]
     stats["signals_generated"] += 1
+    from app.intelligence.ai_engine import MockAIProvider as EngineMockAIProvider
+    from app.intelligence.models import MarketRegime
+    engine_ai_provider = EngineMockAIProvider()
     
     print(f"\n4. Passing to Signal Engine (HYBRID Mode)")
-    ai_analysis = await ai_provider.analyze(
+    print("AI SOURCE: MOCK / SIMULATED")
+    
+    ai_analysis = engine_ai_provider.generate_analysis(
         symbol=symbol,
-        decision_mode=DecisionMode.HYBRID,
-        strategy_evidence=None,
-        news=[],
-        fundamentals={}
+        timestamp=pd.Timestamp(latest_signal.timestamp).to_pydatetime().replace(tzinfo=timezone.utc) if latest_signal.timestamp else datetime.now(timezone.utc),
+        regime=MarketRegime(symbol=symbol, timestamp=datetime.now(timezone.utc), trend_state="Bullish", volatility_state="Normal", momentum_state="High"),
+        sentiment_evidence=[],
+        fundamental_evidence=[],
+        quantitative_evidence={"momentum": latest_signal.direction}
     )
     
     opportunity = signal_engine.create_opportunity(
@@ -171,7 +177,7 @@ async def run_experiment():
     print("\n==================================================")
     print("EXPERIMENT RESULTS")
     print("==================================================")
-    print(f"Total Portfolio Value: {portfolio.cash + sum([p.quantity * current_price for p in portfolio.positions.values()])}")
+    print(f"Total Portfolio Value: {portfolio.cash + sum([p.quantity * current_price for p in portfolio.positions])}")
     print(f"Realized P&L: {portfolio.realized_pnl}")
     pprint(stats)
     

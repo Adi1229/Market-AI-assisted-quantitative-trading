@@ -33,10 +33,10 @@ def test_upstox_symbol_mapping():
 
 def test_upstox_timeframe_mapping():
     provider = UpstoxMarketDataProvider()
-    assert provider._map_timeframe_to_upstox("1m") == "1minute"
-    assert provider._map_timeframe_to_upstox("1d") == "day"
+    assert provider._map_timeframe_to_upstox_v3("1m") == ("minutes", "1")
+    assert provider._map_timeframe_to_upstox_v3("1d") == ("days", "1")
     with pytest.raises(ValueError):
-        provider._map_timeframe_to_upstox("invalid")
+        provider._map_timeframe_to_upstox_v3("invalid")
 
 @patch('app.data.providers.upstox_provider.requests.get')
 def test_upstox_get_historical_success(mock_get, mock_upstox_settings):

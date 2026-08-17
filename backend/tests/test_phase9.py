@@ -135,4 +135,8 @@ def test_notification_adapter_factory():
 
 def test_provider_factory_all_modes():
     # Verify settings toggle correctly
-    assert settings.DATA_PROVIDER in ["mock", "real"]
+    assert settings.DATA_PROVIDER in ["mock", "real", "dhan", "upstox", "yfinance"]
+    
+    from app.api.dependencies import get_market_data_provider
+    provider = get_market_data_provider()
+    assert provider is not None

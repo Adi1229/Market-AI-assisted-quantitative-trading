@@ -16,7 +16,7 @@ class UpstoxMarketDataProvider(MarketDataProvider):
     """
     def __init__(self):
         self.analytics_token = settings.UPSTOX_ANALYTICS_TOKEN
-        self.base_url = "https://api.upstox.com/v2"
+        self.base_url = "https://api.upstox.com/v3"
         
     @property
     def provider_id(self) -> str:
@@ -43,20 +43,20 @@ class UpstoxMarketDataProvider(MarketDataProvider):
         }
         return mapping.get(symbol, symbol)
 
-    def _map_timeframe_to_upstox(self, timeframe: str) -> str:
+    def _map_timeframe_to_upstox_v3(self, timeframe: str) -> tuple[str, str]:
         """
-        Maps internal timeframe (e.g. '1d', '1m') to Upstox interval.
-        Upstox v2 supports: 1minute, 30minute, day, etc.
+        Maps internal timeframe (e.g. '1d', '1m') to Upstox V3 unit and interval.
+        Returns: (unit, interval)
         """
         mapping = {
-            "1m": "1minute",
-            "5m": "5minute",
-            "15m": "15minute",
-            "30m": "30minute",
-            "1h": "60minute",
-            "1d": "day",
-            "1wk": "week",
-            "1mo": "month"
+            "1m": ("minutes", "1"),
+            "5m": ("minutes", "5"),
+            "15m": ("minutes", "15"),
+            "30m": ("minutes", "30"),
+            "1h": ("hours", "1"),
+            "1d": ("days", "1"),
+            "1wk": ("weeks", "1"),
+            "1mo": ("months", "1")
         }
         if timeframe not in mapping:
             raise ValueError(f"Unsupported Upstox timeframe: {timeframe}")
@@ -66,20 +66,20 @@ class UpstoxMarketDataProvider(MarketDataProvider):
         self, symbol: str, timeframe: str, start_date: datetime, end_date: datetime
     ) -> pd.DataFrame:
         """
-        Fetches historical data from Upstox Historical Candle API.
-        URL format: /historical-candle/{instrument_key}/{interval}/{to_date}/{from_date}
+        Fetches historical data from Upstox Historical Candle API V3.
+        URL format: /historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}
         Dates should be in yyyy-mm-dd format.
         """
         headers = self._get_headers()
         
         instrument_key = self._map_symbol_to_upstox(symbol)
-        interval = self._map_timeframe_to_upstox(timeframe)
+        unit, interval = self._map_timeframe_to_upstox_v3(timeframe)
         
         from_date = start_date.strftime("%Y-%m-%d")
         to_date = end_date.strftime("%Y-%m-%d")
         
-        # Upstox v2 URL structure for historical candles
-        url = f"{self.base_url}/historical-candle/{instrument_key}/{interval}/{to_date}/{from_date}"
+        # Upstox V3 URL structure for historical candles
+        url = f"{self.base_url}/historical-candle/{instrument_key}/{unit}/{interval}/{to_date}/{from_date}"
         
         try:
             response = requests.get(url, headers=headers, timeout=10)

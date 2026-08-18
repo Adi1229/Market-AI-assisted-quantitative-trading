@@ -204,11 +204,12 @@ async def generate_mock_opportunity(
     
     unique_symbol = f"TEST_SYM_{uuid.uuid4().hex[:6]}"
     
-    strategy_sig = StrategySignal(symbol=unique_symbol, strategy_id="mock", strategy_version="1", direction=1, features={}, timestamp=datetime.now())
+    strategy_sig = StrategySignal(symbol=unique_symbol, strategy_id="mock", strategy_name="Mock", strategy_version="1", direction=1, features={}, timestamp=datetime.now())
     ai_analysis = AIAnalysis(
         symbol=unique_symbol, timestamp=datetime.now(), market_context="Bullish",
         thesis="Strong fundamentals and trend.", sentiment_evidence=[], fundamental_evidence=[],
-        quantitative_evidence={}, provider_id="MockAI", confidence=0.85, risks=[]
+        quantitative_evidence={}, provider_id="MockAI", confidence=0.85, risks=[],
+        bullish_factors=["Strong EPS"], bearish_factors=[], evidence="SUPPORTED BY DATA", source="MOCK"
     )
     
     opp = signal_engine.create_opportunity(

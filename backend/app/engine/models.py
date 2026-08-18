@@ -58,11 +58,17 @@ class TradeOpportunity(BaseModel):
     opportunity_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     symbol: str
     instrument_id: str
+    timeframe: Optional[str] = None
     timestamp: datetime
     
     decision_mode: DecisionMode
     direction: Direction
     confidence_score: float
+    
+    # Phase 12 Extensions
+    strategy_version: Optional[str] = None
+    ai_confidence: Optional[float] = None
+    hybrid_score: Optional[float] = None
     
     strategy_evidence: Optional[StrategyEvidence] = None
     ai_evidence: Optional[AIEvidence] = None

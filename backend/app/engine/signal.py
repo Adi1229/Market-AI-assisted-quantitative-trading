@@ -70,21 +70,21 @@ class SignalEngine:
         symbol: str,
         timestamp: datetime,
         decision_mode: DecisionMode,
+        timeframe: Optional[str] = None,
         strategy_signal: Optional[StrategySignal] = None,
         ai_analysis: Optional[AIAnalysis] = None
     ) -> TradeOpportunity:
         
         strat_ev = None
         if strategy_signal and decision_mode in [DecisionMode.STRATEGY_ONLY, DecisionMode.HYBRID]:
-            # In Phase 3, direction is 1 (Long) or -1 (Short)
             direction_str = "BUY" if strategy_signal.direction == 1 else ("SELL" if strategy_signal.direction == -1 else "FLAT")
             strat_ev = StrategyEvidence(
-                strategy_id="strat", 
-                strategy_name="Strat", 
-                strategy_version="1.0",
+                strategy_id=getattr(strategy_signal, "strategy_id", "strat"), 
+                strategy_name=getattr(strategy_signal, "strategy_name", "Strat"), 
+                strategy_version=getattr(strategy_signal, "strategy_version", "1.0"),
                 parameters={},
                 signal_type=direction_str,
-                signal_score=80.0, # Mock 80 for basic signal
+                signal_score=80.0,
                 features_used={},
                 explanation="Strategy generated signal."
             )
@@ -120,10 +120,14 @@ class SignalEngine:
         return TradeOpportunity(
             symbol=symbol,
             instrument_id=symbol,
+            timeframe=timeframe,
             timestamp=timestamp,
             decision_mode=decision_mode,
             direction=agg_result["direction"],
             confidence_score=agg_result["score"],
+            strategy_version=strat_ev.strategy_version if strat_ev else None,
+            ai_confidence=ai_analysis.confidence if ai_analysis else None,
+            hybrid_score=agg_result["score"] if decision_mode == DecisionMode.HYBRID else None,
             strategy_evidence=strat_ev,
             ai_evidence=ai_ev,
             market_regime=ai_analysis.market_context if ai_analysis else "Unknown",

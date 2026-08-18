@@ -39,7 +39,11 @@ class AIAnalysis(BaseModel):
     market_context: str
     thesis: str
     confidence: float = Field(..., ge=0.0, le=1.0)
-    risks: List[str]
+    bullish_factors: List[str] = Field(default_factory=list)
+    bearish_factors: List[str] = Field(default_factory=list)
+    risks: List[str] = Field(default_factory=list)
+    evidence: str = Field(..., description="SUPPORTED BY DATA or INSUFFICIENT EVIDENCE")
+    source: str = Field(..., description="E.g., REAL or MOCK")
     sentiment_evidence: List[SentimentResult] = Field(default_factory=list)
     fundamental_evidence: List[FundamentalData] = Field(default_factory=list)
     quantitative_evidence: Dict[str, Any] = Field(default_factory=dict)

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
-from app.api.v1.endpoints import market, strategies, backtesting, signals, portfolio
+from app.api.v1.endpoints import market, strategies, backtesting, signals, portfolio, watchlist, analytics, research
 
 from contextlib import asynccontextmanager
 from app.engine.telegram_bot import TelegramBot
@@ -42,3 +42,8 @@ app.include_router(strategies.router, prefix="/api/v1", tags=["strategies"])
 app.include_router(backtesting.router, prefix="/api/v1", tags=["backtesting"])
 app.include_router(signals.router, prefix="/api/v1", tags=["signals"])
 app.include_router(portfolio.router, prefix="/api/v1", tags=["portfolio"])
+app.include_router(watchlist.router, prefix="/api/v1/watchlists", tags=["watchlists"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(research.router, prefix="/api/v1/research", tags=["research"])
+app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["sessions"])
+app.include_router(operations.router, prefix="/api/v1/operations", tags=["operations"])

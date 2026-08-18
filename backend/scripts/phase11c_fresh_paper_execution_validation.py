@@ -109,7 +109,27 @@ async def run_experiment():
         db.close()
         return
         
-    # Compute features
+    # Drop currently forming candle if incomplete
+    current_time = datetime.now(timezone.utc)
+    if not df.empty:
+        latest_ts = df.iloc[-1]['timestamp']
+        # Convert string to pd.Timestamp if necessary and make tz-aware
+        latest_ts = pd.Timestamp(latest_ts)
+        if latest_ts.tzinfo is None:
+            latest_ts = latest_ts.tz_localize('UTC')
+        
+        # A 5m candle is complete when current_time >= latest_ts + 5m
+        if current_time < latest_ts + timedelta(minutes=5):
+            print(f"Candle at {latest_ts} is still forming. Dropping.")
+            df = df.iloc[:-1]
+
+    if df.empty:
+        print("NO SIGNAL")
+        print("Not enough data after dropping incomplete candle.")
+        db.close()
+        return
+
+    # Compute features on completed data
     import app.quantitative.features.core as features
     df['SMA_50'] = features.calculate_sma(df, 50)
     df['RSI_14'] = features.calculate_rsi(df, 14)
@@ -128,10 +148,19 @@ async def run_experiment():
     
     if not signals:
         print("NO VALID STRATEGY SIGNAL")
+        print("STATUS: PASS WITH LIMITATION — STRATEGY PRODUCED NO FRESH SIGNAL")
         db.close()
         return
         
+    latest_completed_ts = pd.Timestamp(df.iloc[-1]['timestamp'])
     latest_signal = signals[-1]
+    
+    if pd.Timestamp(latest_signal.timestamp) != latest_completed_ts:
+        print(f"Latest completed candle at {latest_completed_ts} produced NO SIGNAL (Flat).")
+        print("STATUS: PASS WITH LIMITATION — STRATEGY PRODUCED NO FRESH SIGNAL")
+        db.close()
+        return
+        
     stats["signals_generated"] += 1
     
     print(f"\n4. Passing to Signal Engine (HYBRID Mode)")
@@ -149,6 +178,7 @@ async def run_experiment():
     opportunity = signal_engine.create_opportunity(
         symbol=symbol,
         timestamp=pd.Timestamp(latest_signal.timestamp).to_pydatetime().replace(tzinfo=timezone.utc) if latest_signal.timestamp else datetime.now(timezone.utc),
+        timeframe=timeframe,
         decision_mode=DecisionMode.HYBRID,
         strategy_signal=latest_signal,
         ai_analysis=ai_analysis

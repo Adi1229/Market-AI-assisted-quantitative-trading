@@ -92,6 +92,12 @@ class VirtualPortfolio:
         commission = order.commission or 0.0
         
         import uuid
+        from app.data.database.models import TradeOpportunityDB, PaperTradingJournalDB
+        
+        # Load opportunity details for journal
+        opp = None
+        if db:
+            opp = db.query(TradeOpportunityDB).filter_by(opportunity_id=order.opportunity_id).first()
         
         if order.direction == "BUY":
             self.cash -= (cost_basis + commission)
@@ -128,6 +134,36 @@ class VirtualPortfolio:
                         entry_price=new_pos.entry_price,
                         opened_at=new_pos.opened_at
                     ))
+                    
+            # Record Journal Entry (Open)
+            if db and opp:
+                session_id = None
+                from app.data.database.models import PaperTradingSessionDB
+                active_session = db.query(PaperTradingSessionDB).filter_by(status="ACTIVE").first()
+                if active_session:
+                    session_id = active_session.id
+                    
+                journal = PaperTradingJournalDB(
+                    id=str(uuid.uuid4()),
+                    session_id=session_id,
+                    opportunity_id=opp.opportunity_id,
+                    symbol=order.instrument_id,
+                    direction="LONG",
+                    entry_price=order.fill_price,
+                    quantity=order.quantity,
+                    strategy=opp.strategy_evidence.get('strategy_id') if opp.strategy_evidence else None,
+                    strategy_version=opp.strategy_version,
+                    decision_mode=opp.decision_mode,
+                    ai_score=opp.ai_confidence,
+                    hybrid_score=opp.hybrid_score,
+                    regime=opp.market_regime,
+                    fees=commission,
+                    slippage=0.0,
+                    data_source="UPSTOX", # Hardcoded default for MVP, can be updated later
+                    ai_source="MOCK / SIMULATED",
+                    entry_time=current_time
+                )
+                db.add(journal)
                 
         elif order.direction == "SELL":
             self.cash += (cost_basis - commission)
@@ -142,6 +178,17 @@ class VirtualPortfolio:
                         db_pos = db.query(PositionDB).filter_by(instrument_id=order.instrument_id, direction="LONG").first()
                         if db_pos:
                             db.delete(db_pos)
+                            
+                        # Update Journal (Close)
+                        journal = db.query(PaperTradingJournalDB).filter_by(
+                            symbol=order.instrument_id, 
+                            direction="LONG",
+                            exit_price=None
+                        ).order_by(PaperTradingJournalDB.entry_time.desc()).first()
+                        if journal:
+                            journal.exit_price = order.fill_price
+                            journal.exit_time = current_time
+                            journal.realized_pnl = pnl - commission
                 else:
                     pnl = (order.fill_price - existing.entry_price) * order.quantity
                     self.realized_pnl += pnl - commission
@@ -150,6 +197,17 @@ class VirtualPortfolio:
                         db_pos = db.query(PositionDB).filter_by(instrument_id=order.instrument_id, direction="LONG").first()
                         if db_pos:
                             db_pos.quantity = existing.quantity
+                            
+                        # Partially close journal (approximation for MVP)
+                        journal = db.query(PaperTradingJournalDB).filter_by(
+                            symbol=order.instrument_id, 
+                            direction="LONG",
+                            exit_price=None
+                        ).order_by(PaperTradingJournalDB.entry_time.desc()).first()
+                        if journal:
+                            journal.exit_price = order.fill_price
+                            journal.exit_time = current_time
+                            journal.realized_pnl = pnl - commission
             else:
                 new_pos = ExecutionPosition(
                     instrument_id=order.instrument_id,
@@ -170,6 +228,36 @@ class VirtualPortfolio:
                         entry_price=new_pos.entry_price,
                         opened_at=new_pos.opened_at
                     ))
+                    
+            # Record Journal Entry for Shorting (if not closing a long)
+            if db and opp and not existing:
+                session_id = None
+                from app.data.database.models import PaperTradingSessionDB
+                active_session = db.query(PaperTradingSessionDB).filter_by(status="ACTIVE").first()
+                if active_session:
+                    session_id = active_session.id
+                    
+                journal = PaperTradingJournalDB(
+                    id=str(uuid.uuid4()),
+                    session_id=session_id,
+                    opportunity_id=opp.opportunity_id,
+                    symbol=order.instrument_id,
+                    direction="SHORT",
+                    entry_price=order.fill_price,
+                    quantity=order.quantity,
+                    strategy=opp.strategy_evidence.get('strategy_id') if opp.strategy_evidence else None,
+                    strategy_version=opp.strategy_version,
+                    decision_mode=opp.decision_mode,
+                    ai_score=opp.ai_confidence,
+                    hybrid_score=opp.hybrid_score,
+                    regime=opp.market_regime,
+                    fees=commission,
+                    slippage=0.0,
+                    data_source="UPSTOX",
+                    ai_source="MOCK / SIMULATED",
+                    entry_time=current_time
+                )
+                db.add(journal)
 
         if db:
             state = db.query(PortfolioStateDB).filter(PortfolioStateDB.id == self.portfolio_id).first()

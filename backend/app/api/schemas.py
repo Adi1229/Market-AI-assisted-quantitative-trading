@@ -114,3 +114,25 @@ class BacktestResponse(BaseModel):
     win_rate: float
     total_trades: int
     profit_factor: float
+
+# Phase 12: Watchlist & Analytics
+class WatchlistCreate(BaseModel):
+    name: str
+
+class WatchlistResponse(BaseModel):
+    id: str
+    name: str
+    instruments: List[str]
+    created_at: datetime
+
+class PerformanceAnalyticsResponse(BaseModel):
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    total_pnl: float
+    average_win: float
+    average_loss: float
+    profit_factor: float
+    ai_agreement_rate: float
+    strategy_metrics: Dict[str, Any]

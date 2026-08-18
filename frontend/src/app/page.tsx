@@ -36,11 +36,21 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
-        <p className="text-muted-foreground">
-          Your portfolio performance and latest market opportunities.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">MARKET 2.0</h2>
+          <p className="text-muted-foreground">
+            Your portfolio performance and latest market opportunities.
+          </p>
+        </div>
+        <div className="flex space-x-2">
+            <Badge variant="outline" className="border-blue-500 text-blue-500 bg-blue-500/10 px-3 py-1 font-bold">
+                EXECUTION: PAPER ONLY
+            </Badge>
+            <Badge variant="outline" className="border-red-500 text-red-500 bg-red-500/10 px-3 py-1 font-bold">
+                LIVE: LOCKED
+            </Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

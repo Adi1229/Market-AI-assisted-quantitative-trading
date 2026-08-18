@@ -17,6 +17,8 @@ const navigation = [
   { name: 'Strategy Studio', href: '/strategies', icon: LineChart },
   { name: 'Backtesting', href: '/backtesting', icon: Activity },
   { name: 'Signal Center', href: '/signals', icon: CheckCircle },
+  { name: 'Research', href: '/research', icon: LineChart },
+  { name: 'Operations', href: '/operations', icon: Activity },
 ];
 
 export function Sidebar() {

@@ -34,7 +34,8 @@ def test_signal_engine_hybrid_mode(signal_engine):
     ai_analysis = AIAnalysis(
         symbol="TEST", timestamp=datetime.now(), market_context="Bullish",
         thesis="Look good", sentiment_evidence=[], fundamental_evidence=[],
-        quantitative_evidence={}, provider_id="MockAI", confidence=0.8, risks=[]
+        quantitative_evidence={}, provider_id="MockAI", confidence=0.8, risks=[],
+        bullish_factors=[], bearish_factors=[], evidence="SUPPORTED BY DATA", source="MOCK"
     )
     
     opp = signal_engine.create_opportunity(
@@ -103,8 +104,36 @@ def test_workflow_risk_rejection(orchestrator, mock_db):
 
 def test_workflow_stale_signal(orchestrator, mock_db):
     """Test stale signal rejection."""
+    from datetime import timezone
     opp = TradeOpportunity(
-        symbol="TEST", instrument_id="TEST", timestamp=datetime.now() - timedelta(minutes=10),
+        symbol="TEST", instrument_id="TEST", timestamp=datetime.now(timezone.utc) - timedelta(minutes=10),
+        decision_mode=DecisionMode.STRATEGY_ONLY, direction=Direction.BUY,
+        confidence_score=90.0, risk_level="LOW", reasoning=[], data_references=[],
+        suggested_position_size=100.0, market_regime="Unknown"
+    )
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
+    assert opp.status == OpportunityStatus.RISK_REJECTED
+    assert any("STALE_SIGNAL" in r for r in opp.reasoning)
+
+def test_workflow_fresh_signal_with_timeframe(orchestrator, mock_db):
+    """Test that a 5m timeframe signal timestamped 4 minutes ago is fresh."""
+    from datetime import timezone
+    opp = TradeOpportunity(
+        symbol="TEST", instrument_id="TEST", timestamp=datetime.now(timezone.utc) - timedelta(minutes=4),
+        timeframe="5m",
+        decision_mode=DecisionMode.STRATEGY_ONLY, direction=Direction.BUY,
+        confidence_score=90.0, risk_level="LOW", reasoning=[], data_references=[],
+        suggested_position_size=100.0, market_regime="Unknown"
+    )
+    asyncio.run(orchestrator.process_new_opportunity(opp, current_price=100.0, db=mock_db))
+    assert opp.status == OpportunityStatus.AWAITING_APPROVAL
+
+def test_workflow_stale_signal_with_timeframe(orchestrator, mock_db):
+    """Test that a 5m timeframe signal timestamped 11 minutes ago is stale."""
+    from datetime import timezone
+    opp = TradeOpportunity(
+        symbol="TEST", instrument_id="TEST", timestamp=datetime.now(timezone.utc) - timedelta(minutes=11),
+        timeframe="5m",
         decision_mode=DecisionMode.STRATEGY_ONLY, direction=Direction.BUY,
         confidence_score=90.0, risk_level="LOW", reasoning=[], data_references=[],
         suggested_position_size=100.0, market_regime="Unknown"

@@ -40,36 +40,63 @@ class WorkflowOrchestrator:
         portfolio = await self.execution.get_portfolio_summary({"mock": 0})
         positions = await self.execution.get_positions()
         
-        # Risk Gate
-        risk_decision = self.risk_engine.evaluate(
-            opportunity=opportunity,
-            portfolio_cash=portfolio.cash,
-            current_positions=positions,
-            current_time=datetime.now()
-        )
-        
-        if not risk_decision.approved:
-            opportunity.status = OpportunityStatus.RISK_REJECTED
-            opportunity.reasoning.append(f"Rejected by Risk: {risk_decision.reason}")
-        else:
-            opportunity.status = OpportunityStatus.AWAITING_APPROVAL
-            await self.notification.send_opportunity(opportunity)
+        try:
+            from datetime import timezone
             
-        # Persist Opportunity
-        if db:
-            db_opp = TradeOpportunityDB(
-                opportunity_id=opportunity.opportunity_id,
-                symbol=opportunity.symbol,
-                timestamp=opportunity.timestamp,
-                decision_mode=opportunity.decision_mode.value,
-                direction=opportunity.direction.value,
-                confidence_score=opportunity.confidence_score,
-                strategy_evidence=opportunity.strategy_evidence.model_dump() if opportunity.strategy_evidence else None,
-                ai_evidence=opportunity.ai_evidence.model_dump() if opportunity.ai_evidence else None,
-                status=opportunity.status.value
+            # Risk Gate
+            risk_decision = self.risk_engine.evaluate(
+                opportunity=opportunity,
+                portfolio_cash=portfolio.cash,
+                current_positions=positions,
+                current_time=datetime.now(timezone.utc)
             )
-            db.add(db_opp)
-            db.commit()
+            
+            if not risk_decision.approved:
+                opportunity.status = OpportunityStatus.RISK_REJECTED
+                opportunity.reasoning.append(f"Rejected by Risk: {risk_decision.reason}")
+            else:
+                opportunity.status = OpportunityStatus.AWAITING_APPROVAL
+                await self.notification.send_opportunity(opportunity)
+                
+            # Persist Opportunity
+            if db:
+                session_id = None
+                from app.data.database.models import PaperTradingSessionDB
+                active_session = db.query(PaperTradingSessionDB).filter_by(status="ACTIVE").first()
+                if active_session:
+                    session_id = active_session.id
+                    
+                db_opp = TradeOpportunityDB(
+                    opportunity_id=opportunity.opportunity_id,
+                    session_id=session_id,
+                    symbol=opportunity.symbol,
+                    timestamp=opportunity.timestamp,
+                    decision_mode=opportunity.decision_mode.value,
+                    direction=opportunity.direction.value if hasattr(opportunity.direction, 'value') else opportunity.direction,
+                    confidence_score=opportunity.confidence_score,
+                    strategy_version=opportunity.strategy_version,
+                    ai_confidence=opportunity.ai_confidence,
+                    hybrid_score=opportunity.hybrid_score,
+                    market_regime=opportunity.market_regime,
+                    strategy_evidence=opportunity.strategy_evidence.model_dump() if opportunity.strategy_evidence else None,
+                    ai_evidence=opportunity.ai_evidence.model_dump() if opportunity.ai_evidence else None,
+                    reasoning=opportunity.reasoning,
+                    status=opportunity.status.value
+                )
+                db.add(db_opp)
+                db.commit()
+        except Exception as e:
+            if db:
+                db.rollback()
+                from app.operations.incidents import incident_manager
+                incident_manager.log_incident(
+                    db,
+                    severity="ERROR",
+                    category="WORKFLOW_ERROR",
+                    message=f"Error processing opportunity {opportunity.opportunity_id}: {str(e)}",
+                    instrument=opportunity.symbol
+                )
+            raise
             
     async def process_user_action(
         self, 
@@ -84,6 +111,23 @@ class WorkflowOrchestrator:
         """
         if db is None:
             raise ValueError("DB Session required for WorkflowOrchestrator.process_user_action")
+            
+        # 1. Check expiration at the time of user action
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        opp_time = opportunity.timestamp
+        if opp_time.tzinfo is None:
+            opp_time = opp_time.replace(tzinfo=timezone.utc)
+            
+        age_seconds = (now - opp_time).total_seconds()
+        if age_seconds > self.risk_engine.stale_signal_seconds:
+            opportunity.status = OpportunityStatus.EXPIRED
+            opportunity.reasoning.append("EXPIRED before user could take action.")
+            db_opp = db.query(TradeOpportunityDB).filter_by(opportunity_id=opportunity.opportunity_id).first()
+            if db_opp:
+                db_opp.status = OpportunityStatus.EXPIRED.value
+            db.commit()
+            return None
             
         # 1. Idempotency Check (Transactional)
         idempotency_key = f"{opportunity.opportunity_id}_{action}"

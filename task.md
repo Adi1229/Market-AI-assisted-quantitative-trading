@@ -1,0 +1,8 @@
+- `[/]` 1. Create `backend/scripts/final_production_validation.py`.
+- `[ ]` 2. Run the script and collect real-market data, signals, AI analyses, risk decisions, human decisions, and execution metadata.
+- `[ ]` 3. Extract idempotency and restart persistence results from script execution.
+- `[ ]` 4. Create `docs/FINAL_PAPER_TRADING_EXPERIMENT_REPORT.md`.
+- `[ ]` 5. Run automated tests and frontend build to verify system integrity.
+- `[ ]` 6. Perform security audit to ensure NO SECRET LEAK FOUND and LIVE = LOCKED.
+- `[ ]` 7. Update `docs/FINAL_PROJECT_AUDIT.md`.
+- `[ ]` 8. Return final response metrics.

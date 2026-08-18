@@ -228,3 +228,30 @@ class ProviderHealthDB(Base):
     consecutive_failures = Column(BigInteger, default=0)
     status = Column(String, nullable=False, default="HEALTHY")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+# Phase 15: Experiment Models
+
+class PaperExperimentDB(Base):
+    __tablename__ = "paper_experiments"
+    
+    experiment_id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    starting_capital = Column(Float, nullable=False)
+    execution_mode = Column(String, nullable=False, default="PAPER")
+    data_provider = Column(String, nullable=False)
+    timeframe = Column(String, nullable=False)
+    
+    # Complex configurations stored as JSON
+    watchlist = Column(JSON, nullable=False)
+    strategies = Column(JSON, nullable=False)
+    decision_modes = Column(JSON, nullable=False)
+    risk_configuration = Column(JSON, nullable=False)
+    
+    ai_provider = Column(String, nullable=True)
+    
+    status = Column(String, nullable=False, default="PLANNED") # PLANNED, ACTIVE, PAUSED, COMPLETED, CANCELLED
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

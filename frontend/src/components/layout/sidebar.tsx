@@ -7,7 +7,8 @@ import {
   LineChart, 
   Activity, 
   CheckCircle,
-  Settings
+  Settings,
+  Beaker
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Backtesting', href: '/backtesting', icon: Activity },
   { name: 'Signal Center', href: '/signals', icon: CheckCircle },
   { name: 'Research', href: '/research', icon: LineChart },
+  { name: 'Experiments', href: '/experiments', icon: Beaker },
   { name: 'Operations', href: '/operations', icon: Activity },
 ];
 

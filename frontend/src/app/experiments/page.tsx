@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 import { 
   Beaker, Play, Square, Settings, ShieldAlert, BarChart2
 } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function ExperimentsDashboard() {
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -27,12 +29,12 @@ export default function ExperimentsDashboard() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/v1/experiments');
-      if (res.ok) {
-        setExperiments(await res.json());
-      }
+      const data = await api.getExperiments();
+      setExperiments(data);
+      setError(null);
     } catch (e) {
       console.error(e);
+      setError("Unable to load experiments");
     } finally {
       setLoading(false);
     }
@@ -57,23 +59,18 @@ export default function ExperimentsDashboard() {
         ai_provider: "mock"
       };
 
-      const res = await fetch('http://localhost:8000/api/v1/experiments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        fetchData();
-      }
-    } catch (e) {
+      await api.createExperiment(payload);
+      fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || "Action failed");
       console.error(e);
     } finally {
       setCreating(false);
     }
   };
 
-  if (loading) return <div className="p-8">Loading Experiments...</div>;
+  if (loading) return <div className="p-8 flex h-full items-center justify-center">Loading Experiments...</div>;
+  if (error) return <div className="p-8 flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
 
   return (
     <div className="p-8 space-y-8">

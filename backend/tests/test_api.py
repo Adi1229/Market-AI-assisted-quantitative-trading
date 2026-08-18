@@ -2,8 +2,34 @@ from fastapi.testclient import TestClient
 from app.main import app
 import pytest
 
-client = TestClient(app)
+from app.data.database.session import SessionLocal
+from app.data.database.models import PortfolioStateDB, PositionDB, OrderDB, TradeOpportunityDB, IdempotencyKeyDB, UserDecisionDB
+from app.api.dependencies import _portfolio
 
+from app.core.config import settings
+settings.MARKET_API_TOKEN = "test-token"
+
+client = TestClient(app)
+client.headers.update({"Authorization": f"Bearer {settings.MARKET_API_TOKEN}"})
+
+@pytest.fixture(autouse=True)
+def clean_db():
+    db = SessionLocal()
+    db.query(PositionDB).delete()
+    db.query(OrderDB).delete()
+    db.query(IdempotencyKeyDB).delete()
+    db.query(UserDecisionDB).delete()
+    db.query(TradeOpportunityDB).delete()
+    db.query(PortfolioStateDB).filter_by(id="virtual").delete()
+    db.commit()
+    
+    _portfolio.cash = _portfolio.initial_capital
+    _portfolio.realized_pnl = 0.0
+    _portfolio.positions = []
+    _portfolio.orders = []
+    _portfolio.load_from_db(db)
+    
+    db.close()
 def test_health_check():
     response = client.get("/api/v1/health")
     assert response.status_code == 200

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 import { 
   Server, Activity, ShieldAlert, CheckCircle, XCircle, Clock
 } from 'lucide-react';
@@ -26,6 +27,7 @@ export default function OperationsDashboard() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -35,25 +37,24 @@ export default function OperationsDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statusRes, incidentsRes] = await Promise.all([
-        fetch('http://localhost:8000/api/v1/operations/status').catch(() => null),
-        fetch('http://localhost:8000/api/v1/operations/incidents').catch(() => null)
+      const [statusData, incidentsData] = await Promise.all([
+        api.getOperationsStatus().catch(() => null),
+        api.getIncidents().catch(() => null)
       ]);
 
-      if (statusRes && statusRes.ok) {
-        setStatus(await statusRes.json());
-      }
-      if (incidentsRes && incidentsRes.ok) {
-        setIncidents(await incidentsRes.json());
-      }
+      if (statusData) setStatus(statusData);
+      if (incidentsData) setIncidents(incidentsData);
+      setError(null);
     } catch (e) {
       console.error(e);
+      setError("Unable to load operations data");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-8">Loading Operations Center...</div>;
+  if (loading) return <div className="p-8 flex h-full items-center justify-center">Loading Operations Center...</div>;
+  if (error) return <div className="p-8 flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
 
   return (
     <div className="p-8 space-y-8">

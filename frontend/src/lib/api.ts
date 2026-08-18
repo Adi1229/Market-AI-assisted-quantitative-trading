@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -36,4 +36,23 @@ export const api = {
   
   // Backtesting
   runBacktest: (data: any) => apiClient.post('/backtests', data).then(res => res.data),
+
+  // Operations
+  getOperationsStatus: () => apiClient.get('/operations/status').then(res => res.data),
+  getOperationsHealth: () => apiClient.get('/operations/health').then(res => res.data),
+  getProvidersHealth: () => apiClient.get('/operations/providers').then(res => res.data),
+  getMarketDataHealth: () => apiClient.get('/operations/market-data').then(res => res.data),
+  getHeartbeats: () => apiClient.get('/operations/heartbeat').then(res => res.data),
+  getIncidents: (resolved = false) => apiClient.get(`/operations/incidents?resolved=${resolved}`).then(res => res.data),
+  
+  // Research
+  getResearchSummary: () => apiClient.get('/research/summary').then(res => res.data),
+  getCurrentSession: () => apiClient.get('/research/sessions/current').then(res => res.data),
+  getDailyReport: () => apiClient.get('/research/daily-report').then(res => res.data),
+  manageSession: (data: any) => apiClient.post('/research/sessions', data).then(res => res.data),
+  
+  // Experiments
+  getExperiments: () => apiClient.get('/experiments').then(res => res.data),
+  getExperiment: (id: string) => apiClient.get(`/experiments/${id}`).then(res => res.data),
+  createExperiment: (data: any) => apiClient.post('/experiments', data).then(res => res.data),
 };

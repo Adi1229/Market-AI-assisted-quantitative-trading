@@ -29,7 +29,7 @@ async def test_e2e_operations_isolation(db):
     Simulates a full paper operations lifecycle containing artificial errors.
     Ensures that the state machine catches everything and the application does not crash.
     """
-    portfolio = VirtualPortfolio()
+    portfolio = VirtualPortfolio(initial_capital=100000.0)
     portfolio.load_from_db(db)
     
     execution = PaperExecutionProvider(portfolio)

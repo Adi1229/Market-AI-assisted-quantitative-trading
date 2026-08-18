@@ -38,6 +38,8 @@ class AIAnalysis(BaseModel):
     timestamp: datetime
     market_context: str
     thesis: str
+    provider_id: str
+    actual_model: Optional[str] = None
     confidence: float = Field(..., ge=0.0, le=1.0)
     bullish_factors: List[str] = Field(default_factory=list)
     bearish_factors: List[str] = Field(default_factory=list)
@@ -47,7 +49,6 @@ class AIAnalysis(BaseModel):
     sentiment_evidence: List[SentimentResult] = Field(default_factory=list)
     fundamental_evidence: List[FundamentalData] = Field(default_factory=list)
     quantitative_evidence: Dict[str, Any] = Field(default_factory=dict)
-    provider_id: str
 
 class StrategyRanking(BaseModel):
     strategy_id: str

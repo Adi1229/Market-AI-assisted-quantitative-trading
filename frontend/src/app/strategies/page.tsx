@@ -10,6 +10,7 @@ import { Activity, Play, Square, Settings2 } from "lucide-react";
 export default function StrategyStudio() {
   const [strategies, setStrategies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStrategies();
@@ -19,8 +20,10 @@ export default function StrategyStudio() {
     try {
       const data = await api.getStrategies();
       setStrategies(data);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError("Unable to load strategies");
     } finally {
       setLoading(false);
     }
@@ -33,7 +36,6 @@ export default function StrategyStudio() {
       } else {
         await api.activateStrategy(id);
       }
-      // Re-fetch to see state changes (though mocked in MVP)
       fetchStrategies();
     } catch (err) {
       console.error(err);
@@ -41,6 +43,7 @@ export default function StrategyStudio() {
   };
 
   if (loading) return <div className="flex h-full items-center justify-center">Loading strategies...</div>;
+  if (error) return <div className="flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
 
   return (
     <div className="space-y-6">

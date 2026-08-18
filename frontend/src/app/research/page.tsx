@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 import { 
   Play, Pause, Square, AlertCircle, TrendingUp, CheckCircle, XCircle
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export default function ResearchDashboard() {
   const [session, setSession] = useState<Session | null>(null);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -37,22 +39,24 @@ export default function ResearchDashboard() {
 
   const fetchData = async () => {
     try {
-      const [sessionRes, reportRes] = await Promise.all([
-        fetch('http://localhost:8000/api/v1/sessions/current').catch(() => null),
-        fetch('http://localhost:8000/api/v1/analytics/daily-report').catch(() => null)
+      const [sessionData, reportData] = await Promise.all([
+        api.getCurrentSession().catch(() => null),
+        api.getDailyReport().catch(() => null)
       ]);
 
-      if (sessionRes && sessionRes.ok) {
-        setSession(await sessionRes.json());
+      if (sessionData && sessionData.status !== "NO_SESSION") {
+        setSession(sessionData);
       } else {
         setSession(null);
       }
 
-      if (reportRes && reportRes.ok) {
-        setReport(await reportRes.json());
+      if (reportData) {
+        setReport(reportData);
       }
+      setError(null);
     } catch (e) {
       console.error(e);
+      setError("Unable to load research data");
     } finally {
       setLoading(false);
     }
@@ -60,13 +64,10 @@ export default function ResearchDashboard() {
 
   const handleAction = async (action: 'start' | 'pause' | 'resume' | 'end') => {
     try {
-      let url = 'http://localhost:8000/api/v1/sessions';
       if (action === 'start') {
-        url += '/start';
-        await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Ops Session' }) });
+        await api.manageSession({ action, name: 'Ops Session' });
       } else if (session) {
-        url += `/${session.id}/${action}`;
-        await fetch(url, { method: 'POST' });
+        await api.manageSession({ action });
       }
       fetchData();
     } catch (e) {
@@ -75,7 +76,11 @@ export default function ResearchDashboard() {
   };
 
   if (loading) {
-    return <div className="p-8">Loading Research Dashboard...</div>;
+    return <div className="p-8 flex h-full items-center justify-center">Loading Research Dashboard...</div>;
+  }
+  
+  if (error) {
+    return <div className="p-8 flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
   }
 
   return (

@@ -92,12 +92,11 @@ class MockAIProvider(BaseAIProvider):
         )
 
 class ConfigurableLLMProvider(BaseAIProvider):
-    """Production AI Provider respecting API keys and using grounded data."""
+    """Production AI Provider delegating to specific implementations based on config."""
     
     def __init__(self):
         from app.core.config import settings
-        self.api_key = getattr(settings, "LLM_API_KEY", None)
-        self.provider = getattr(settings, "AI_PROVIDER", "mock")
+        self.provider_type = getattr(settings, "AI_PROVIDER", "mock").lower()
         
     def generate_analysis(
         self,
@@ -109,50 +108,13 @@ class ConfigurableLLMProvider(BaseAIProvider):
         quantitative_evidence: Dict[str, Any]
     ) -> AIAnalysis:
         
-        try:
-            # If explicitly mocked or lacking key, fallback to deterministic mock logic
-            if self.provider.lower() == "mock" or not self.api_key:
-                return MockAIProvider().generate_analysis(
-                    symbol, timestamp, regime, sentiment_evidence, fundamental_evidence, quantitative_evidence
-                )
-                
-            # Simulate real LLM logic
-            return AIAnalysis(
-                symbol=symbol,
-                timestamp=timestamp,
-                market_context=f"{regime.trend_state}_{regime.volatility_state}",
-                thesis=f"LLM Generated thesis based on {len(sentiment_evidence)} news and {len(fundamental_evidence)} fundamentals.",
-                confidence=0.85,
-                bullish_factors=["Strong technicals"],
-                bearish_factors=["Macro headwinds"],
-                risks=["Execution risk"],
-                evidence="SUPPORTED BY DATA",
-                source="REAL",
-                sentiment_evidence=sentiment_evidence,
-                fundamental_evidence=fundamental_evidence,
-                quantitative_evidence=quantitative_evidence,
-                provider_id="LLMProvider"
-            )
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"AI Provider failed: {e}")
-            try:
-                from app.data.database.session import SessionLocal
-                from app.operations.incidents import incident_manager
-                db = SessionLocal()
-                incident_manager.log_incident(
-                    db,
-                    severity="ERROR",
-                    category="AI_ERROR",
-                    message=f"AI failure isolated, falling back to MOCK: {str(e)}",
-                    provider=self.provider
-                )
-                db.close()
-            except Exception:
-                pass
-                
-            # Fallback to Mock
-            return MockAIProvider().generate_analysis(
+        if self.provider_type == "openrouter":
+            from app.intelligence.openrouter_provider import OpenRouterAIProvider
+            return OpenRouterAIProvider().generate_analysis(
                 symbol, timestamp, regime, sentiment_evidence, fundamental_evidence, quantitative_evidence
             )
+            
+        # Default mock behavior
+        return MockAIProvider().generate_analysis(
+            symbol, timestamp, regime, sentiment_evidence, fundamental_evidence, quantitative_evidence
+        )

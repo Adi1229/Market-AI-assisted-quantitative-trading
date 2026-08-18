@@ -13,6 +13,7 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -28,14 +29,17 @@ export default function PortfolioPage() {
       setSummary(sumData);
       setPositions(posData);
       setOrders(ordData);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError("Unable to load portfolio");
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) return <div className="flex h-full items-center justify-center">Loading portfolio...</div>;
+  if (error) return <div className="flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
 
   return (
     <div className="space-y-6">

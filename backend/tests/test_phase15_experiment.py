@@ -7,7 +7,11 @@ from app.main import app
 from app.data.database.session import SessionLocal, engine, Base
 from app.data.database.models import PaperExperimentDB
 
+from app.core.config import settings
+settings.MARKET_API_TOKEN = "test-token"
+
 client = TestClient(app)
+client.headers.update({"Authorization": f"Bearer {settings.MARKET_API_TOKEN}"})
 
 @pytest.fixture(scope="function")
 def db():

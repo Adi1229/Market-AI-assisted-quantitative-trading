@@ -219,8 +219,8 @@ export default function BacktestingPage() {
                   </Card>
                 </div>
               ) : (
-                <div className="flex h-full min-h-[300px] items-center justify-center text-muted-foreground">
-                  Metrics will appear here after a successful run.
+                <div className="flex h-full min-h-[300px] items-center justify-center text-muted-foreground font-semibold">
+                  NO BACKTEST RESULT
                 </div>
               )}
             </CardContent>

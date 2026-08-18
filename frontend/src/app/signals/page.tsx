@@ -10,6 +10,7 @@ import { ArrowUpRight, ArrowDownRight, CheckCircle, XCircle, Zap } from "lucide-
 export default function SignalCenter() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOpportunities();
@@ -19,20 +20,23 @@ export default function SignalCenter() {
     try {
       const data = await api.getOpportunities();
       setOpportunities(data);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError("Unable to load signals");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAction = async (id: string, action: "approve" | "ignore") => {
+  const handleAction = async (opp: any, action: "approve" | "ignore") => {
     try {
-      const currentPrice = 2450.0; // Mock current price for MVP
+      // Prefer suggested entry price from opportunity or fallback to 0.0 for mock/paper 
+      const currentPrice = opp.entry_price || opp.target_price || 0.0;
       if (action === "approve") {
-        await api.approveOpportunity(id, currentPrice);
+        await api.approveOpportunity(opp.opportunity_id, currentPrice);
       } else {
-        await api.ignoreOpportunity(id, currentPrice);
+        await api.ignoreOpportunity(opp.opportunity_id, currentPrice);
       }
       fetchOpportunities();
     } catch (err: any) {
@@ -51,6 +55,7 @@ export default function SignalCenter() {
   };
 
   if (loading) return <div className="flex h-full items-center justify-center">Loading signals...</div>;
+  if (error) return <div className="flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -143,8 +148,8 @@ export default function SignalCenter() {
                 )}
                 
                 <div className="pt-2 border-t border-border flex justify-between text-xs text-muted-foreground">
-                    <span>NEWS SOURCE: MOCK</span>
-                    <span>DATA SOURCE: UPSTOX / MOCK</span>
+                    <span>NEWS SOURCE: {opp.ai_evidence?.provider_id === "MockAI" ? "MOCK" : "REAL"}</span>
+                    <span>DATA SOURCE: {opp.ai_evidence?.provider_id === "MockAI" ? "MOCK" : "UPSTOX"}</span>
                 </div>
               </CardContent>
 
@@ -153,13 +158,13 @@ export default function SignalCenter() {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => handleAction(opp.opportunity_id, "ignore")}
+                    onClick={() => handleAction(opp, "ignore")}
                   >
                     <XCircle className="mr-2 h-4 w-4" /> IGNORE
                   </Button>
                   <Button 
                     className="w-full bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => handleAction(opp.opportunity_id, "approve")}
+                    onClick={() => handleAction(opp, "approve")}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" /> TAKE PAPER TRADE
                   </Button>

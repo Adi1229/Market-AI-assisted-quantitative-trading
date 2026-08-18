@@ -11,6 +11,7 @@ export default function DashboardOverview() {
   const [summary, setSummary] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -21,8 +22,10 @@ export default function DashboardOverview() {
         ]);
         setSummary(portfolioData);
         setOpportunities(oppsData.slice(0, 5)); // Just recent 5
+        setError(null);
       } catch (err) {
         console.error("Failed to load dashboard data", err);
+        setError("Unable to load portfolio");
       } finally {
         setLoading(false);
       }
@@ -32,6 +35,10 @@ export default function DashboardOverview() {
 
   if (loading) {
     return <div className="flex h-full items-center justify-center">Loading dashboard...</div>;
+  }
+
+  if (error) {
+    return <div className="flex h-full items-center justify-center text-destructive font-semibold">{error}</div>;
   }
 
   return (
@@ -101,7 +108,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              -{(summary?.max_drawdown * 100 || 0).toFixed(2)}%
+              {summary?.max_drawdown !== undefined ? `-{(summary.max_drawdown * 100).toFixed(2)}%` : "NO DATA"}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Historical maximum drawdown
@@ -118,7 +125,7 @@ export default function DashboardOverview() {
           </CardHeader>
           <CardContent>
             {opportunities.length === 0 ? (
-              <div className="text-center py-4 text-muted-foreground">No recent opportunities</div>
+              <div className="text-center py-4 text-muted-foreground">NO OPPORTUNITIES</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -173,19 +180,19 @@ export default function DashboardOverview() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Overall Trend</span>
-                <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-green-500/20">Bullish</Badge>
+                <Badge variant="outline" className="text-muted-foreground">NO DATA</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Volatility</span>
-                <Badge variant="outline" className="text-yellow-500 border-yellow-500/20">Elevated</Badge>
+                <Badge variant="outline" className="text-muted-foreground">NO DATA</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">AI Confidence</span>
-                <span className="text-sm font-bold">85%</span>
+                <span className="text-sm font-bold text-muted-foreground">NO DATA</span>
               </div>
               <div className="pt-4 border-t border-border mt-4">
-                <p className="text-sm text-muted-foreground">
-                  "Markets are showing strong upside momentum driven by positive macro developments. However, short-term indicators suggest mild overbought conditions."
+                <p className="text-sm text-muted-foreground text-center italic">
+                  Market regime data is not currently available from the backend provider.
                 </p>
               </div>
             </div>
